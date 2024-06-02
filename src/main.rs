@@ -1,9 +1,12 @@
-use std::{
-    io::{prelude::*, BufReader, Result},
-    net::{TcpListener, TcpStream}, thread,
-};
+use std::fs;
+use std::io::prelude::*;
+use std::net::TcpListener;
+use std::net::TcpStream;
+use std::thread;
+use std::time::Duration;
 
 use small_talk::ThreadPool;
+use small_talk::conn;
 
 fn main() {
     
@@ -21,29 +24,36 @@ fn main() {
         });
     }
 
+    let connection = &mut conn::establish_connection();
 }
 
-fn handle_connection(mut stream: TcpStream){
-    let buf_reader = BufReader::new(&mut stream);
+fn handle_connection(mut stream: TcpStream) {
+    let mut buffer = [0; 1024];
+    stream.read(&mut buffer).unwrap();
 
-    let http_request: Vec<_> = buf_reader
-        .lines()
-        .map(|result| result.unwrap())
-        .take_while(|line| !line.is_empty())
-        .collect();
+    let get = b"GET / HTTP/1.1\r\n";
+    let sleep = b"GET /sleep HTTP/1.1\r\n";
 
-    let status_line = "HTTP/1.1 200 OK\r\n\r\n";
-    let content_line = "Content-Type: text/html; charset=utf-8\r\n\r\n";
-    
-    let content = response();
-    let length = content.len();
+    let (status_line, filename) = if buffer.starts_with(get) {
+        ("HTTP/1.1 200 OK", "hello.html")
+    } else if buffer.starts_with(sleep) {
+        thread::sleep(Duration::from_secs(5));
+        ("HTTP/1.1 200 OK", "hello.html")
+    } else {
+        ("HTTP/1.1 404 NOT FOUND", "404.html")
+    };
 
+    let contents = response();
 
-    let res = format!("{status_line}\r\n{content_line}\r\nContent-Length: {length}\r\n\r\n{content}");
+    let response = format!(
+        "{}\r\nContent-Length: {}\r\n\r\n{}",
+        status_line,
+        contents.len(),
+        contents
+    );
 
-    //stream.write_all()
-    stream.write_all(res.as_bytes()).unwrap();
-    println!("Request: {:#?}", http_request);
+    stream.write_all(response.as_bytes()).unwrap();
+    stream.flush().unwrap();
 }
 
 

@@ -1,9 +1,14 @@
-use std::{sync::{mpsc::{self, Receiver}, Arc, Mutex}, thread::{spawn, JoinHandle, Thread, ThreadId}};
+use std::{os::unix::thread, sync::{mpsc::{self, Receiver}, Arc, Mutex}, thread::{spawn, JoinHandle, ThreadId}};
+
+
+pub mod conn;
+pub mod models;
+pub mod schema;
 
 // estrutura responsável por inicializar uma thread de estruturas
 pub struct ThreadPool{
     workers: Vec<Worker>,
-    sender: mpsc::Sender<Job>
+    sender: Option<mpsc::Sender<Job>>
 }
 
 type Job = Box<dyn FnOnce() + Send + 'static>;
@@ -23,22 +28,38 @@ impl ThreadPool {
             workers.push(Worker::new(Arc::clone(&receiver)));
         }
         
-        ThreadPool {workers, sender}
+        ThreadPool {workers, sender: Some(sender)}
     }
 
     pub fn execute<F>(&self, f: F)
     where F: FnOnce() + Send + 'static 
     {
         let job = Box::new(f);
-        self.sender.send(job).unwrap();
+        self.sender.as_ref().unwrap().send(job).unwrap();
 
     }
 }
 
+// implementando mecanismo para "desligar" os workers e threads
+impl Drop for ThreadPool {
+    fn drop(&mut self) {
+        drop(self.sender.take());
+
+        for worker in &mut self.workers{
+            print!("Shuttingdown worker {:?}", worker.id);
+
+            if let Some(thread) = worker.thread.take() {
+                thread.join().unwrap();
+            }
+        }
+    }
+}
+
+
 // workers que irão inicializar as threads
 pub struct Worker {
     id: ThreadId,
-    thread: JoinHandle<()>
+    thread: Option<JoinHandle<()>>
 }
 
 impl Worker {
@@ -46,14 +67,23 @@ impl Worker {
         
         // o receiver nesse caso é uma função para ser executada.
         let thread = spawn(move || loop {
-            let job = receiver.lock().unwrap().recv().unwrap();
+            let message = receiver.lock().unwrap().recv();
 
-            println!("Worker got a job; executing.");
+            match message {
+                Ok(job) => {
+                    println!("Worker got a job; executing.");
+        
+                    job();
+                }
+                Err(_) => {
+                    println!("Worker disconnected; shutting down.");
+                    break;
+                } 
+            }
 
-            job();
         });
         let id: ThreadId = thread.thread().id();
 
-        Worker{id, thread}
+        Worker{id, thread: Some(thread)}
     }
 }
