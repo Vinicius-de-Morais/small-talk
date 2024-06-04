@@ -16,7 +16,7 @@ fn main() {
 
 
     // fazendo um laço a partir da stream de dados vinda do listener
-    for stream in listener.incoming() {
+    for stream in listener.incoming().take(2) {
         let stream = stream.unwrap();
 
         pool.execute(|| {
