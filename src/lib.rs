@@ -4,6 +4,7 @@ use std::{os::unix::thread, sync::{mpsc::{self, Receiver}, Arc, Mutex}, thread::
 pub mod conn;
 pub mod models;
 pub mod schema;
+pub mod protocol;
 
 // estrutura responsável por inicializar uma thread de estruturas
 pub struct ThreadPool{
@@ -46,7 +47,7 @@ impl Drop for ThreadPool {
         drop(self.sender.take());
 
         for worker in &mut self.workers{
-            print!("Shuttingdown worker {:?}", worker.id);
+            println!("Shuttingdown worker {:?}", worker.id);
 
             if let Some(thread) = worker.thread.take() {
                 thread.join().unwrap();
