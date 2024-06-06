@@ -28,7 +28,7 @@ use color_eyre::{
     Result,
 };
 
-// sobe
+//sobe
 
 #[derive(Debug, Default)]
 pub struct App {
