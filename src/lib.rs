@@ -1,6 +1,5 @@
 use std::{os::unix::thread, sync::{mpsc::{self, Receiver}, Arc, Mutex}, thread::{spawn, JoinHandle, ThreadId}};
 
-
 pub mod conn;
 pub mod models;
 pub mod schema;

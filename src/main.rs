@@ -7,24 +7,36 @@ use std::time::Duration;
 
 use small_talk::ThreadPool;
 use small_talk::conn;
+mod components;
+
+
 
 fn main() {
+
+    let handle_up_server = thread::spawn(|| {    
+            // escutando a porta 6969
+        let listener = TcpListener::bind("127.0.0.1:6969").unwrap();
+        let pool = ThreadPool::new(4);
+
+        // fazendo um laço a partir da stream de dados vinda do listener
+        for stream in listener.incoming().take(2) {
+            let stream = stream.unwrap();
+
+            pool.execute(|| {
+                handle_connection(stream)
+            });
+        }
+    });
+
+    let handle_ui = thread::spawn(|| {    
+        components::init_ui();
+    });
     
-    // escutando a porta 6969
-    let listener = TcpListener::bind("127.0.0.1:6969").unwrap();
-    let pool = ThreadPool::new(4);
-
-
-    // fazendo um laço a partir da stream de dados vinda do listener
-    for stream in listener.incoming().take(2) {
-        let stream = stream.unwrap();
-
-        pool.execute(|| {
-            handle_connection(stream)
-        });
-    }
-
     let connection = &mut conn::establish_connection();
+
+    handle_up_server.join().unwrap();
+    handle_ui.join().unwrap();
+
 }
 
 fn handle_connection(mut stream: TcpStream) {
