@@ -10,6 +10,7 @@ pub mod schema;
 pub mod protocol;
 pub mod dto;
 pub mod channel_manager;
+mod components;
 
 
 pub fn handle_connection(mut stream: TcpStream, channel_manager: SharedChannelManager) {
