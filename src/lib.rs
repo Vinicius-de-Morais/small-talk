@@ -5,6 +5,7 @@ pub mod conn;
 pub mod models;
 pub mod schema;
 pub mod protocol;
+pub mod dto;
 
 // estrutura responsável por inicializar uma thread de estruturas
 pub struct ThreadPool{

@@ -2,7 +2,6 @@ use diesel::prelude::*;
 use diesel::sqlite::SqliteConnection;
 use dotenvy::dotenv;
 use std::env;
-use std::ptr::null;
 
 pub fn establish_connection() -> SqliteConnection {
     dotenv().ok();

@@ -2,9 +2,12 @@ use std::fs;
 use std::io::prelude::*;
 use std::net::TcpListener;
 use std::net::TcpStream;
+use std::str::from_utf8;
 use std::thread;
 use std::time::Duration;
 
+use small_talk::protocol;
+use small_talk::protocol::Protocol;
 use small_talk::ThreadPool;
 use small_talk::conn;
 
@@ -30,6 +33,11 @@ fn main() {
 fn handle_connection(mut stream: TcpStream) {
     let mut buffer = [0; 1024];
     stream.read(&mut buffer).unwrap();
+
+    println!("-----------");
+    print!("{}", from_utf8(&buffer).unwrap());
+
+    Protocol::handle_request(&buffer);
 
     let get = b"GET / HTTP/1.1\r\n";
     let sleep = b"GET /sleep HTTP/1.1\r\n";

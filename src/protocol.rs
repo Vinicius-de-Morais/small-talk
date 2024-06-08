@@ -1,11 +1,14 @@
 use std::fmt;
-use std::io::{self, Write};
+use std::hash::{Hash, Hasher};
+use std::io::{self, Read, Write};
 use std::net::TcpStream;
 use std::thread::{self, ThreadId};
 
-use json::{self, object};
+use serde::{Deserialize, Serialize};
 
 use crate::models::User;
+use crate::dto::header::Header;
+
 
 pub struct Protocol {
     status: StatusType,
@@ -36,10 +39,17 @@ impl Protocol {
 
     fn build(user: User, payload: json::JsonValue) -> Vec<u8> {
         let status_type = StatusType::Okay;
+
+        let thread_id = thread::current().id();
+
+        // lidar com o ID da thead ja que ela esta atualmente com bug na conversão para u64
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        thread_id.hash(&mut hasher);
+
         let header = Header {
             user: user.id,
             status: status_type,
-            request_id: thread::current().id(),
+            request_id: hasher.finish(),
             success: true,
         };
         let req_type = RequestType::Receive;
@@ -52,6 +62,22 @@ impl Protocol {
 
         let request = format!("{}\r\n", header_send);
         request.into_bytes()
+    }
+
+    pub fn handle_request(buffer_string: &[u8]){
+        assert!(!buffer_string.starts_with(b"SEND"));
+        
+        // separar as partes da resposta
+        let vec_req: Vec<&[u8]> = buffer_string
+            .split(|&b| b == b'\r' || b == b'\n')
+            .filter(|slice| !slice.is_empty())
+            .collect();
+    
+        let mut header_slice = String::from_utf8_lossy(vec_req[1]).into_owned();
+        let payload_slice = String::from_utf8_lossy(vec_req[2]).into_owned();
+
+        let header_json: Header = serde_json::from_str(&header_slice).expect("Failed to parse header from JSON");
+        println!("{}", header_json);
     }
 }
 
@@ -75,6 +101,7 @@ impl fmt::Display for RequestType {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub enum StatusType {
     Okay,
     Error,
@@ -88,23 +115,6 @@ impl fmt::Display for StatusType {
             StatusType::Error => write!(f, "Error"),
             StatusType::MissingArg => write!(f, "MissingArg"),
         }
-    }
-}
-
-pub struct Header {
-    request_id: ThreadId,
-    status: StatusType,
-    success: bool,
-    user: i32,
-}
-
-impl fmt::Display for Header {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "ID: {:?}, Status: {}, Success: {}, User ID: {}",
-            self.request_id, self.status, self.success, self.user
-        )
     }
 }
 
