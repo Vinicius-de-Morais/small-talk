@@ -29,7 +29,7 @@ fn main() {
     });
 
     let handle_ui = thread::spawn(|| {    
-        components::init_ui();
+        components::init_chat();
     });
     
     let connection = &mut conn::establish_connection();
