@@ -1,15 +1,11 @@
-use std::fs;
+
 use std::io::prelude::*;
 use std::net::TcpListener;
 use std::net::TcpStream;
-use std::str::from_utf8;
-use std::thread;
-use std::time::Duration;
 
-use small_talk::protocol;
 use small_talk::protocol::Protocol;
 use small_talk::ThreadPool;
-use small_talk::conn;
+
 
 fn main() {
     

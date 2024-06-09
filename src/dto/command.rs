@@ -1,4 +1,4 @@
-use std::{fmt, io::copy};
+use std::fmt;
 
 use serde::{
     de::{self, Visitor},

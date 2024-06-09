@@ -3,9 +3,9 @@ mod tests {
     
     use small_talk::models::User;
     use small_talk::protocol::Protocol;
-    use std::net::{TcpListener, TcpStream};
+    use std::net::TcpListener;
     use std::thread;
-    use std::io::{self, Read, Write};
+    use std::io::{Read, Write};
 
     fn start_mock_server() -> (thread::JoinHandle<()>, String) {
         let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind");
