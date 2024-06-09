@@ -26,61 +26,14 @@ fn main() {
             handle_connection(stream)
         });
     }
-
-    let connection = &mut conn::establish_connection();
 }
 
 fn handle_connection(mut stream: TcpStream) {
     let mut buffer = [0; 1024];
     stream.read(&mut buffer).unwrap();
 
-    println!("-----------");
-    print!("{}", from_utf8(&buffer).unwrap());
+    let response = Protocol::handle_request(&buffer);
 
-    Protocol::handle_request(&buffer);
-
-    let get = b"GET / HTTP/1.1\r\n";
-    let sleep = b"GET /sleep HTTP/1.1\r\n";
-
-    let (status_line, filename) = if buffer.starts_with(get) {
-        ("HTTP/1.1 200 OK", "hello.html")
-    } else if buffer.starts_with(sleep) {
-        thread::sleep(Duration::from_secs(5));
-        ("HTTP/1.1 200 OK", "hello.html")
-    } else {
-        ("HTTP/1.1 404 NOT FOUND", "404.html")
-    };
-
-    let contents = response();
-
-    let response = format!(
-        "{}\r\nContent-Length: {}\r\n\r\n{}",
-        status_line,
-        contents.len(),
-        contents
-    );
-
-    stream.write_all(response.as_bytes()).unwrap();
+    stream.write_all(response.to_string().as_bytes()).unwrap();
     stream.flush().unwrap();
-}
-
-
-fn response() -> String{
-
-    let mut html: String = "".to_owned();
-    
-    html.push_str(&"<!DOCTYPE html>");
-
-    html.push_str(&"<html lang='en'>");
-    html.push_str(&"<head>");
-    html.push_str(&"    <meta charset='utf-8'>");
-    html.push_str(&"    <title>Hello!</title>");
-    html.push_str(&"</head>");
-    html.push_str(&"<body>");
-    html.push_str(&"    <h1>Hello!</h1>");
-    html.push_str(&"    <p>Hi from Rust</p>");
-    html.push_str(&"</body>");
-    html.push_str(&"</html>");
-
-    html
 }

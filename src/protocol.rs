@@ -3,11 +3,11 @@ use std::hash::{Hash, Hasher};
 use std::io::{self, Read, Write};
 use std::net::TcpStream;
 use std::thread::{self, ThreadId};
-
 use serde::{Deserialize, Serialize};
 
 use crate::models::User;
 use crate::dto::header::Header;
+use crate::dto::command::Command;
 
 
 pub struct Protocol {
@@ -20,6 +20,7 @@ impl Protocol {
     //     let status = status_type;
     //     Protocol { status }
     // }
+
     pub fn check_response(self, response: Response) {
         assert!(response.header.success != true);
     }
@@ -48,6 +49,7 @@ impl Protocol {
 
         let header = Header {
             user: user.id,
+            user_name: user.nickname,
             status: status_type,
             request_id: hasher.finish(),
             success: true,
@@ -64,20 +66,36 @@ impl Protocol {
         request.into_bytes()
     }
 
-    pub fn handle_request(buffer_string: &[u8]){
+    pub fn handle_request(buffer_string: &[u8]) -> HeaderSend{
         assert!(!buffer_string.starts_with(b"SEND"));
         
+        let (mut header_json, mut command_json) = Protocol::read_buffer(buffer_string);
+        let res_payload = command_json.handle_command(&mut header_json);
+
+        let header_send = HeaderSend {
+            req_type: RequestType::Receive,
+            header: header_json,
+            payload: res_payload,
+        };
+
+        header_send
+    }
+    
+    pub fn read_buffer(buffer_string: &[u8]) -> (Header, Command){
         // separar as partes da resposta
         let vec_req: Vec<&[u8]> = buffer_string
-            .split(|&b| b == b'\r' || b == b'\n')
-            .filter(|slice| !slice.is_empty())
-            .collect();
-    
-        let mut header_slice = String::from_utf8_lossy(vec_req[1]).into_owned();
-        let payload_slice = String::from_utf8_lossy(vec_req[2]).into_owned();
+        .split(|&b| b == b'\r' || b == b'\n')
+        .filter(|slice| !slice.is_empty())
+        .collect();
 
-        let header_json: Header = serde_json::from_str(&header_slice).expect("Failed to parse header from JSON");
-        println!("{}", header_json);
+        let mut header_slice = String::from_utf8_lossy(vec_req[1]).into_owned();
+        let payload_slice = String::from_utf8_lossy(vec_req[2]).into_owned().replace("Payload:", "");
+
+        // Ainda não decidi o que vou fazer com isso
+        let mut header_json: Header = serde_json::from_str(&header_slice).expect("Failed to parse header from JSON");
+        let mut command_json: Command = serde_json::from_str(&payload_slice).expect("Failed to parse header from JSON");
+        
+        (header_json, command_json)
     }
 }
 
