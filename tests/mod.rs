@@ -34,9 +34,11 @@ mod tests {
         //let (server_handle, server_addr) = start_mock_server();
 
         // Mock user and payload
-        let user = User { id: 123 };
+        let user = User { id: 123, nickname: "guest".to_string(), last_nickname: "".to_string(), active: true };
         let payload = json::object! {
-            "key" => "value",
+            "command" => "/",
+            "input" => "teste123",
+            "channel" => "/",
         };
 
         // Attempt to send the request
