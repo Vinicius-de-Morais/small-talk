@@ -17,13 +17,9 @@ enum InputMode {
 
 /// App holds the state of the application
 struct App {
-    /// Current value of the input box
     input: String,
-    /// Position of cursor in the editor area.
     character_index: usize,
-    /// Current input mode
     input_mode: InputMode,
-    /// History of recorded messages
     messages: Vec<String>,
 }
 
@@ -53,10 +49,10 @@ impl App {
         self.move_cursor_right();
     }
 
-    /// Returns the byte index based on the character position.
+    /// Retorna o index do byte baseado na posição do caractere.
     ///
-    /// Since each character in a string can be contain multiple bytes, it's necessary to calculate
-    /// the byte index based on the index of the character.
+    /// Como cada caractere em uma string pode conter vários bytes, é necessário calcular
+    /// o índice de bytes com base no índice do caractere.
     fn byte_index(&mut self) -> usize {
         self.input
             .char_indices()
@@ -65,23 +61,22 @@ impl App {
             .unwrap_or(self.input.len())
     }
 
+
+    // Backspace feito na mão
     fn delete_char(&mut self) {
         let is_not_cursor_leftmost = self.character_index != 0;
         if is_not_cursor_leftmost {
-            // Method "remove" is not used on the saved text for deleting the selected char.
-            // Reason: Using remove on String works on bytes instead of the chars.
-            // Using remove would require special care because of char boundaries.
+            // O método "remove" não é usado no texto salvo para deletar o caracter selecionado.
+            // Motivo: usar remove em String funciona em bytes em vez de caracteres.
+            // Usar remove exigiria cuidado especial devido aos limites do caractere.
 
             let current_index = self.character_index;
             let from_left_to_current_index = current_index - 1;
 
-            // Getting all characters before the selected character.
             let before_char_to_delete = self.input.chars().take(from_left_to_current_index);
-            // Getting all characters after selected character.
+       
             let after_char_to_delete = self.input.chars().skip(current_index);
 
-            // Put all characters together except the selected one.
-            // By leaving the selected one out, it is forgotten and therefore deleted.
             self.input = before_char_to_delete.chain(after_char_to_delete).collect();
             self.move_cursor_left();
         }
@@ -110,11 +105,11 @@ pub fn main_chat() -> Result<(), Box<dyn Error>> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    // create app and run it
+    // Cria o APP e roda ele
     let app = App::new();
     let res = run_app(&mut terminal, app);
 
-    // restore terminal
+    // restaura o terminal
     disable_raw_mode()?;
     execute!(
         terminal.backend_mut(),
@@ -130,6 +125,7 @@ pub fn main_chat() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+// Loop da aplicação
 fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<()> {
     loop {
         terminal.draw(|f| ui(f, &app))?;
@@ -218,33 +214,44 @@ fn ui(f: &mut Frame, app: &App) {
     
     match app.input_mode {
         InputMode::Normal =>
-            // Hide the cursor. `Frame` does this by default, so we don't need to do anything here
+            // Deixa o cursor invisivel, o frame faz isso por default.
             {}
 
         InputMode::Editing => {
-            // Make the cursor visible and ask ratatui to put it at the specified coordinates after
-            // rendering
+            // Fazer o cursor ficar visivel enquanto digita
             #[allow(clippy::cast_possible_truncation)]
             f.set_cursor(
-                // Draw the cursor at the current position in the input field.
-                // This position is can be controlled via the left and right arrow key
+                // Renderizar o cursor na posição atuar do input.
+                // A posição pode ser controlade pelas setinhas do teclado.
                 input_area.x + app.character_index as u16 + 1,
-                // Move one line down, from the border to the input line
+                // Move uma linha pra baixo, caso digite muito.
                 input_area.y + 1,
             );
         }
     }
+
+    let user = "Marquinho";
+    let user2 = "Joel";
 
     let messages: Vec<ListItem> = app
         .messages
         .iter()
         .enumerate()
         .map(|(i, m)| {
-            let content = Line::from(Span::raw(format!("User-{i}: {m}")));
-            ListItem::new(content)
+
+            if i % 2 == 0 {
+                let content = Line::from(Span::raw(format!("{user}: {m}")));
+                ListItem::new(content).style(Color::White)
+            } else {
+                let content = Line::from(Span::raw(format!("{user2}: {m}")));
+                ListItem::new(content).style(Color::LightBlue)
+            }
+
+            
         })
         .collect();
 
+    // fazer logica do usuario aqui
     let messages = List::new(messages).block(Block::bordered().title("Chat"));
         f.render_widget(messages, messages_area); 
 }
