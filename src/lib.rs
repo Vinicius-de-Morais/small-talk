@@ -3,7 +3,6 @@ use std::{io::{Read, Write}, net::TcpStream, sync::{mpsc, Arc, Mutex}, thread::{
 use channel_manager::SharedChannelManager;
 use protocol::Protocol;
 
-
 pub mod conn;
 pub mod models;
 pub mod schema;
