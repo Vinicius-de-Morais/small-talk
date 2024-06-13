@@ -10,14 +10,15 @@ pub struct Header {
     pub success: bool,
     pub user: i32,
     pub user_name: String,
+    pub channel: String
 }
 
 impl fmt::Display for Header {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "{{ \"request_id\": {:?}, \"status\": \"{}\", \"success\": {}, \"user\": {}, \"user_name\": \"{}\" }}",
-            self.request_id, self.status, self.success, self.user, self.user_name
+            "{{ \"request_id\": {:?}, \"status\": \"{}\", \"success\": {}, \"user\": {}, \"user_name\": \"{}\", \"channel\": \"{}\" }}",
+            self.request_id, self.status, self.success, self.user, self.user_name, self.channel
         )
     }
 }

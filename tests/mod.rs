@@ -1,27 +1,29 @@
 #[cfg(test)]
 mod tests {
-    
+    use small_talk::channel_manager::ChannelManager;
     use small_talk::models::User;
     use small_talk::protocol::Protocol;
-    use std::net::TcpListener;
+    use small_talk::{handle_connection, ThreadPool};
+    use std::net::{TcpListener, TcpStream};
     use std::thread;
     use std::io::{Read, Write};
+    use std::sync::{Arc, Mutex};
+    use json::JsonValue;
 
-    fn start_mock_server() -> (thread::JoinHandle<()>, String) {
+    type SharedChannelManager = Arc<Mutex<ChannelManager>>;
+
+    // iniciar o servidor mokado
+    fn start_mock_server(channel_manager: SharedChannelManager) -> (thread::JoinHandle<()>, String) {
         let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind");
         let addr = listener.local_addr().unwrap().to_string();
+        let pool = ThreadPool::new(4);
         let handle = thread::spawn(move || {
             for stream in listener.incoming() {
-                match stream {
-                    Ok(mut stream) => {
-                        let mut buffer = [0u8; 1024];
-                        let _ = stream.read(&mut buffer);
-                        let _ = stream.write_all(b"Mock server response");
-                    }
-                    Err(e) => {
-                        eprintln!("Failed to accept a connection: {:?}", e);
-                    }
-                }
+                let stream = stream.unwrap();
+                let channel_manager = channel_manager.clone();
+                pool.execute(move || {
+                    handle_connection(stream, channel_manager);
+                });
             }
         });
         (handle, addr)
@@ -29,25 +31,24 @@ mod tests {
 
     #[test]
     fn test_send() {
-        // Start the mock server
-        let server_addr = "127.0.0.1:6969";
-        //let (server_handle, server_addr) = start_mock_server();
 
-        // Mock user and payload
+        let channel_manager: SharedChannelManager = Arc::new(Mutex::new(ChannelManager::new()));
+
+        // Começar o server e o gerenciador de canais
+        let (server_handle, server_addr) = start_mock_server(channel_manager.clone());
+
+        // Mockar o usuario e payload
         let user = User { id: 123, nickname: "guest".to_string(), last_nickname: "".to_string(), active: true };
-        let payload = json::object! {
-            "command" => "/",
-            "input" => "teste123",
-            "channel" => "/",
-        };
+        let mut payload = json::JsonValue::new_object();
+            payload["command"]["type"] = "Message".into();
+            payload["command"]["input"] = "teste123".into();
 
         // Attempt to send the request
-        let result = Protocol::send(&server_addr, user, payload);
+        let result = Protocol::send(user, payload, channel_manager.clone());
 
-        // Check if sending was successful
         assert!(result.is_ok(), "Failed to send request: {:?}", result);
 
-        // Clean up the server
-        //drop(server_handle);
+        // dropa o server
+        drop(server_handle);
     }
 }

@@ -12,7 +12,6 @@ use super::header::Header;
 #[derive(Serialize, Deserialize)]
 pub struct Command {
     pub command: CommandTypes,
-    pub channel: String,
     pub input: String,
 }
 
@@ -22,6 +21,7 @@ impl Command {
             CommandTypes::Register => Self::register(self, header),
             CommandTypes::Login => Self::login(self, header),
             CommandTypes::Join => Self::join(),
+            CommandTypes::Message => Self::message(self, header),
             CommandTypes::Whisper => Self::whisper(),
             CommandTypes::Exit => Self::exit(),
         }
@@ -84,6 +84,14 @@ impl Command {
         } 
     }
 
+    fn message(self, header: &mut Header) -> json::JsonValue {
+
+        json::object! {
+            "message" => self.input,
+            "channel" => <std::string::String as Clone>::clone(&header.channel)
+        } 
+    }
+
     fn whisper() -> json::JsonValue {
 
         json::object! {
@@ -104,6 +112,7 @@ pub enum CommandTypes {
     Register,
     Login,
     Join,
+    Message,
     Whisper,
     Exit,
 }
@@ -114,6 +123,7 @@ impl CommandTypes {
             CommandTypes::Register => "/register",
             CommandTypes::Login => "/login",
             CommandTypes::Join => "/join",
+            CommandTypes::Message => "/message",
             CommandTypes::Whisper => "/whisper",
             CommandTypes::Exit => "/exit",
         }

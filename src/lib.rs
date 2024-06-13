@@ -1,4 +1,7 @@
-use std::{sync::{mpsc::{self}, Arc, Mutex}, thread::{spawn, JoinHandle, ThreadId}};
+use std::{io::{Read, Write}, net::TcpStream, sync::{mpsc, Arc, Mutex}, thread::{spawn, JoinHandle, ThreadId}};
+
+use channel_manager::SharedChannelManager;
+use protocol::Protocol;
 
 
 pub mod conn;
@@ -6,6 +9,28 @@ pub mod models;
 pub mod schema;
 pub mod protocol;
 pub mod dto;
+pub mod channel_manager;
+
+
+pub fn handle_connection(mut stream: TcpStream, channel_manager: SharedChannelManager) {
+    let mut buffer = [0; 1024];
+    stream.read(&mut buffer).unwrap();
+
+    let response = Protocol::handle_request(&buffer);
+
+    // define o canal para ser enviado
+    let channel = response.header.channel.clone();
+
+    // Inscreve o request no canal
+    {
+        let mut manager = channel_manager.lock().unwrap();
+        manager.subscribe(channel, stream.try_clone().unwrap());
+    }
+
+    // manda a resposta de volta para o cliente
+    stream.write_all(response.to_string().as_bytes()).unwrap();
+    stream.flush().unwrap();
+}
 
 // estrutura responsável por inicializar uma thread de estruturas
 pub struct ThreadPool{

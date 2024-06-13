@@ -5,6 +5,7 @@ use std::net::TcpStream;
 use std::thread::{self};
 use serde::{Deserialize, Serialize};
 
+use crate::channel_manager::SharedChannelManager;
 use crate::models::User;
 use crate::dto::header::Header;
 use crate::dto::command::Command;
@@ -16,25 +17,21 @@ pub struct Protocol {
 
 impl Protocol {
 
-    // pub fn new(){
-    //     let status = status_type;
-    //     Protocol { status }
-    // }
+    // METODOS SENT E BUIL UTILIZADOS MAJORITARIAMENTE PARA TESTE
 
-    pub fn send(addr: &str, user: User, payload: json::JsonValue) -> io::Result<()> {
+    pub fn send(user: User, payload: json::JsonValue, channel_manager: SharedChannelManager) -> io::Result<()> {
         // Build the request
         let request = Protocol::build(user, payload);
 
-        // Establish TCP connection to the server
-        let mut stream = TcpStream::connect(addr)?;
-
-        // Send the request to the server
-        stream.write_all(&request)?;
+        {
+            let manager = channel_manager.lock().unwrap();
+            manager.send_to_channel(&request.header.channel, &request.to_string());
+        }
 
         Ok(())
     }
 
-    fn build(user: User, payload: json::JsonValue) -> Vec<u8> {
+    fn build(user: User, payload: json::JsonValue) -> HeaderSend {
         let status_type = StatusType::Okay;
 
         let thread_id = thread::current().id();
@@ -49,8 +46,10 @@ impl Protocol {
             status: status_type,
             request_id: hasher.finish(),
             success: true,
+            channel: '/'.to_string()
         };
-        let req_type = RequestType::Receive;
+
+        let req_type = RequestType::Send;
 
         let header_send = HeaderSend {
             req_type,
@@ -58,10 +57,10 @@ impl Protocol {
             payload,
         };
 
-        let request = format!("{}\r\n", header_send);
-        request.into_bytes()
+        header_send
     }
 
+    // lidar coom o request lendo os dados vindos do buffer para trasnformar num header utilizavel
     pub fn handle_request(buffer_string: &[u8]) -> HeaderSend{
         assert!(!buffer_string.starts_with(b"SEND"));
         
@@ -77,6 +76,7 @@ impl Protocol {
         header_send
     }
 
+    // Transformar o buffer em estruturas do rust, para ler de maneira correta os headers e requests
     pub fn read_buffer(buffer_string: &[u8]) -> (Header, Command){
         // separar as partes da resposta
         let vec_req: Vec<&[u8]> = buffer_string
@@ -96,9 +96,9 @@ impl Protocol {
 }
 
 pub struct HeaderSend {
-    req_type: RequestType,
-    header: Header,
-    payload: json::JsonValue,
+    pub req_type: RequestType,
+    pub header: Header,
+    pub payload: json::JsonValue,
 }
 
 pub enum RequestType {
