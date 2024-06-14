@@ -64,7 +64,7 @@ impl Protocol {
     pub fn handle_request(buffer_string: &[u8]) -> HeaderSend{
         assert!(!buffer_string.starts_with(b"SEND"));
         
-        let (mut header_json, command_json) = Protocol::read_buffer(buffer_string);
+        let (mut header_json, command_json) = Protocol::get_header_and_command(buffer_string);
         let res_payload = command_json.handle_command(&mut header_json);
 
         let mut req_type = RequestType::Receive;
@@ -82,7 +82,17 @@ impl Protocol {
     }
 
     // Transformar o buffer em estruturas do rust, para ler de maneira correta os headers e requests
-    pub fn read_buffer(buffer_string: &[u8]) -> (Header, Command){
+    pub fn get_header_and_command(buffer_string: &[u8]) -> (Header, Command){
+
+        let (header, command) = Protocol::read_buffer(buffer_string);
+        let header_json = Protocol::header_to_object(&header);
+        let command_json = Protocol::command_to_object(&command);
+
+        (header_json, command_json)
+    }
+
+
+    pub fn read_buffer(buffer_string: &[u8]) -> (String, String){
         // separar as partes da resposta
         let vec_req: Vec<&[u8]> = buffer_string
         .split(|&b| b == b'\r' || b == b'\n')
@@ -91,13 +101,20 @@ impl Protocol {
 
         let header_slice = String::from_utf8_lossy(vec_req[1]).into_owned();
         let payload_slice = String::from_utf8_lossy(vec_req[2]).into_owned().replace("Payload:", "");
-
-        // Ainda não decidi o que vou fazer com isso
-        let header_json: Header = serde_json::from_str(&header_slice).expect("Failed to parse header from JSON");
-        let command_json: Command = serde_json::from_str(&payload_slice).expect("Failed to parse header from JSON");
         
-        (header_json, command_json)
+        (header_slice, payload_slice)
     }
+
+    pub fn header_to_object(header: &str) -> Header {
+        let header_json: Header = serde_json::from_str(header).unwrap();
+        header_json
+    }
+
+    pub fn command_to_object(command: &str) -> Command {
+        let command_json: Command = serde_json::from_str(command).unwrap();
+        command_json
+    }
+
 }
 
 pub struct HeaderSend {
