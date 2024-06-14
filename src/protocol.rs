@@ -5,7 +5,6 @@ use std::net::TcpStream;
 use std::thread::{self};
 use serde::{Deserialize, Serialize};
 
-use crate::channel_manager::SharedChannelManager;
 use crate::models::User;
 use crate::dto::header::Header;
 use crate::dto::command::Command;
@@ -19,14 +18,15 @@ impl Protocol {
 
     // METODOS SENT E BUIL UTILIZADOS MAJORITARIAMENTE PARA TESTE
 
-    pub fn send(user: User, payload: json::JsonValue, channel_manager: SharedChannelManager) -> io::Result<()> {
+    pub fn send(addr: &str, user: User, payload: json::JsonValue) -> io::Result<()> {
         // Build the request
         let request = Protocol::build(user, payload);
 
-        {
-            let manager = channel_manager.lock().unwrap();
-            manager.send_to_channel(&request.header.channel, &request.to_string());
-        }
+        // Establish TCP connection to the server
+        let mut stream = TcpStream::connect(addr)?;
+
+        // Send the request to the server
+        stream.write_all(&request.to_string().as_bytes())?;
 
         Ok(())
     }
@@ -67,8 +67,13 @@ impl Protocol {
         let (mut header_json, command_json) = Protocol::read_buffer(buffer_string);
         let res_payload = command_json.handle_command(&mut header_json);
 
+        let mut req_type = RequestType::Receive;
+        if !res_payload["channel"].is_null() {
+            req_type = RequestType::Send;
+        }
+
         let header_send = HeaderSend {
-            req_type: RequestType::Receive,
+            req_type: req_type,
             header: header_json,
             payload: res_payload,
         };
@@ -111,6 +116,16 @@ impl fmt::Display for RequestType {
         match self {
             RequestType::Receive => write!(f, "RECEIVE"),
             RequestType::Send => write!(f, "SEND"),
+        }
+    }
+}
+
+impl PartialEq for RequestType {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (RequestType::Receive, RequestType::Receive) => true,
+            (RequestType::Send, RequestType::Send) => true,
+            _ => false,
         }
     }
 }

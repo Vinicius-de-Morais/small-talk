@@ -25,10 +25,15 @@ pub fn handle_connection(mut stream: TcpStream, channel_manager: SharedChannelMa
     {
         let mut manager = channel_manager.lock().unwrap();
         manager.subscribe(channel, stream.try_clone().unwrap());
+
+        if response.req_type == protocol::RequestType::Send {
+            manager.send_to_channel(&response.header.channel.clone(), &response.to_string());
+        }else{
+            stream.write_all(response.to_string().as_bytes()).unwrap();
+        }
     }
 
     // manda a resposta de volta para o cliente
-    stream.write_all(response.to_string().as_bytes()).unwrap();
     stream.flush().unwrap();
 }
 
