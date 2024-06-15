@@ -4,11 +4,9 @@ mod tests {
     use small_talk::models::User;
     use small_talk::protocol::Protocol;
     use small_talk::{handle_connection, ThreadPool};
-    use std::net::{TcpListener, TcpStream};
+    use std::net::TcpListener;
     use std::thread;
-    use std::io::{Read, Write};
     use std::sync::{Arc, Mutex};
-    use json::JsonValue;
 
     type SharedChannelManager = Arc<Mutex<ChannelManager>>;
 
@@ -44,7 +42,7 @@ mod tests {
             payload["command"]["input"] = "teste123".into();
 
         // Attempt to send the request
-        let result = Protocol::send(user, payload, channel_manager.clone());
+        let result = Protocol::send(server_addr.as_str(), user, payload);
 
         assert!(result.is_ok(), "Failed to send request: {:?}", result);
 
