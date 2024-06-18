@@ -1,4 +1,8 @@
+use serde_json::Value;
+use std::thread;
 use std::{error::Error, io};
+use serde_json::json;
+use chrono::Utc;
 
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind},
@@ -10,6 +14,20 @@ use ratatui::{
     widgets::{Block, List, ListItem, Paragraph},
 };
 
+use std::sync::Arc;
+use std::sync::Mutex;
+use std::net::TcpListener;
+
+use crate::{
+    ThreadPool,
+    dto::header, 
+    models::User, 
+    handle_connection, 
+    protocol::Protocol,  
+    channel_manager::ChannelManager
+}; 
+
+//Protocol
 enum InputMode {
     Normal,
     Editing,
@@ -22,6 +40,14 @@ struct App {
     input_mode: InputMode,
     messages: Vec<String>,
 }
+
+struct Client {
+    user: User,
+    server: String,
+    payload: json::JsonValue
+}
+
+
 
 impl App {
     const fn new() -> Self {
@@ -62,7 +88,7 @@ impl App {
     }
 
 
-    // Backspace feito na mão
+    // Backspace
     fn delete_char(&mut self) {
         let is_not_cursor_leftmost = self.character_index != 0;
         if is_not_cursor_leftmost {
@@ -94,33 +120,141 @@ impl App {
         self.messages.push(self.input.clone());
         self.input.clear();
         self.reset_cursor();
+        Protocol::send(&client_tcp.server, client_tcp.user, client_tcp.payload);
+    }
+
+    // Implementação da conversão do JSON (header) para um vetor de mensagens
+    fn parse_json_to_messages(json_value: Value) -> Vec<String> {
+        let mut messages = Vec::new();
+        if let Some(array) = json_value.as_array() {
+            for item in array {
+                if let Some(msg) = item.as_str() {
+                    messages.push(msg.to_string());
+                }
+            }
+        }
+        messages
+    }
+
+        
+    fn build_request(nickname:String, command:String, input:String) {
+
+        // Mockar o usuario e payload
+        let mut user = User { 
+            id: 123, 
+            nickname: nickname.to_string(), 
+            last_nickname: "".to_string(), 
+            active: true 
+        };
+
+        let mut payload = json::JsonValue::new_object();
+        payload["command"]["type"] = command.into();
+        payload["command"]["input"] = input.into();
+
+        (user, payload)
+    };
+}
+
+fn get_server() {
+    let mut entry_server = String::new();
+}
+
+
+
+fn up_server() {
+    let listener = TcpListener::bind("127.0.0.1:6969").unwrap();
+    let pool = ThreadPool::new(4);
+
+    // canal para gerenciar os channels
+    let channel_manager = Arc::new(Mutex::new(ChannelManager::new()));
+
+    // fazendo um laço a partir da stream de dados vinda do listener
+    for stream in listener.incoming().take(2) {
+        let stream = stream.unwrap();
+        let channel_manager = Arc::clone(&channel_manager);
+
+        pool.execute(move || {
+            handle_connection(stream, channel_manager)
+        });
     }
 }
 
+fn get_informations() {
+
+    let mut entry_server = String::new();
+    let mut user_command = String::new();
+
+    println!("---------------------------------------------------------------------------------------");
+    println!("Insira o IP: ");
+
+    io::stdin()
+        .read_line(&mut entry_server)
+        .expect("Falha ao ler a linha");
+
+
+    println!("---------------------------------------------------------------------------------------");
+    println!("Entre: ");
+
+    io::stdin()
+        .read_line(&mut user_command)
+        .expect("Falha ao ler a linha");
+
+
+    // let (header, payload) = Protocol::read_buffer(combined_string.as_bytes());  
+    
+    let mut payload = json::JsonValue::new_object();
+        payload["command"]["type"] = "Message".into();
+        payload["command"]["input"] = "teste123".into();
+
+    
+    let client_tcp = Client { server:entry_server.to_owned(), user, payload};
+        // Attempt to send the request
+    send_message()
+
+}
+
+
+fn send_message() {
+    Protocol::send(&client_tcp.server, client_tcp.user, client_tcp.payload);    
+}
+
+
+
+// local para testar
 pub fn main_chat() -> Result<(), Box<dyn Error>> {
+    
+    // // Thread para executar o interface
+    // let handle_server = thread::spawn(|| {   
+    //     up_server();
+    // });
+
+    // handle_server.join().unwrap();
+
+    get_informations();
+
     // setup terminal
-    enable_raw_mode()?;
-    let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
-    let backend = CrosstermBackend::new(stdout);
-    let mut terminal = Terminal::new(backend)?;
+    // enable_raw_mode()?;
+    // let mut stdout = io::stdout();
+    // execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+    // let backend = CrosstermBackend::new(stdout);
+    // let mut terminal = Terminal::new(backend)?;
 
-    // Cria o APP e roda ele
-    let app = App::new();
-    let res = run_app(&mut terminal, app);
+    // // Cria o APP e roda ele
+    // let app = App::new();
+    // let res = run_app(&mut terminal, app);
 
-    // restaura o terminal
-    disable_raw_mode()?;
-    execute!(
-        terminal.backend_mut(),
-        LeaveAlternateScreen,
-        DisableMouseCapture
-    )?;
-    terminal.show_cursor()?;
+    // // restaura o terminal
+    // disable_raw_mode()?;
+    // execute!(
+    //     terminal.backend_mut(),
+    //     LeaveAlternateScreen,
+    //     DisableMouseCapture
+    // )?;
+    // terminal.show_cursor()?;
 
-    if let Err(err) = res {
-        println!("{err:?}");
-    }
+    // if let Err(err) = res {
+    //     println!("{err:?}");
+    // }
 
     Ok(())
 }
@@ -230,28 +364,17 @@ fn ui(f: &mut Frame, app: &App) {
         }
     }
 
-    let user = "Marquinho";
-    let user2 = "Joel";
-
     let messages: Vec<ListItem> = app
         .messages
         .iter()
         .enumerate()
-        .map(|(i, m)| {
-
-            if i % 2 == 0 {
-                let content = Line::from(Span::raw(format!("{user}: {m}")));
-                ListItem::new(content).style(Color::White)
-            } else {
-                let content = Line::from(Span::raw(format!("{user2}: {m}")));
-                ListItem::new(content).style(Color::LightBlue)
-            }
-
+        .map(|(i, m)| {           
+            let content = Line::from(Span::raw(format!(": {m}")));
+            ListItem::new(content).style(Color::White)
             
         })
         .collect();
 
-    // fazer logica do usuario aqui
     let messages = List::new(messages).block(Block::bordered().title("Chat"));
-        f.render_widget(messages, messages_area); 
+        f.render_widget(messages, messages_area);    
 }

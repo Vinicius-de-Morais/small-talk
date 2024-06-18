@@ -1,23 +1,30 @@
 
-use std::net::TcpListener;
-use std::sync::Arc;
-use std::sync::Mutex;
+use std::io;
 use std::thread;
 
-use small_talk::channel_manager::ChannelManager;
-use small_talk::handle_connection;
-use small_talk::ThreadPool;
+use std::sync::Arc;
+use std::sync::Mutex;
+use std::net::TcpListener;
 
-mod components;
+use small_talk::{
+    ThreadPool,
+    components,
+    handle_connection,
+    models::{User, NewUser},
+    channel_manager::ChannelManager,
+};
+
 
 
 
 fn main() {
-    // Thread para executar o interface
-    let handle_ui = thread::spawn(|| {    
-        components::init_chat();
-    });
 
+     // Thread para executar o interface
+     let handle_ui = thread::spawn(|| {   
+
+        components::app::main_chat();
+        
+    });
 
     // escutando a porta 6969
     let listener = TcpListener::bind("127.0.0.1:6969").unwrap();
@@ -38,3 +45,5 @@ fn main() {
 
     handle_ui.join().unwrap();
 }
+
+

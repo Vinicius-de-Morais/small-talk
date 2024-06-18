@@ -22,6 +22,8 @@ impl Protocol {
         // Build the request
         let request = Protocol::build(user, payload);
 
+        println!("{}", request);
+
         // Establish TCP connection to the server
         let mut stream = TcpStream::connect(addr)?;
 
