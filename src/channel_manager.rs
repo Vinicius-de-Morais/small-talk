@@ -27,6 +27,7 @@ impl ChannelManager {
                 println!("Sending message to channel: {}", channel);
 
                 let _ = subscriber.write_all(message.as_bytes());
+                subscriber.flush().unwrap();
             }
         }
     }

@@ -36,7 +36,7 @@ def receive_response(socket):
                 request_info, payload = parse_response(response)
                 payload_json = json.dumps(payload)
                 # Adicionando a mensagem formatada ao histórico
-                message_history.append(f"Mensagem recebida: {payload_json["message"]}")
+                message_history.append(f"Mensagem recebida: {payload_json}")
                 print_messages()
         except Exception as e:
             print(f"Erro ao receber mensagem: {e}")
@@ -82,17 +82,15 @@ def main():
         return
 
     print("Digite 'SAIR' para sair do chat.")
-    with socket_connection:
-        while True:
-            #socket_connection = connect_to_server(host, port);
-            message = input()
-            if message.lower() == "sair":
-                break
-            message_history.append(f"Você: {message}")
-            send_request(socket_connection, user_ip, message)
-            print_messages()
-    #socket_connection.close()
+    while True:
+        message = input()
+        if message.lower() == "sair":
+            break
+        message_history.append(f"Você: {message}")
+        send_request(socket_connection, user_ip, message)
+        print_messages()
 
+    socket_connection.close()
 
 if __name__ == "__main__":
     main()
