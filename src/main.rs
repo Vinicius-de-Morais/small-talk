@@ -11,7 +11,7 @@ use small_talk::ThreadPool;
 fn main() {
     // escutando a porta 6969
     let listener = TcpListener::bind("127.0.0.1:6969").unwrap();
-    let pool = ThreadPool::new(4);
+    let pool = ThreadPool::new(40);
 
     // canal para gerenciar os channels
     let channel_manager = Arc::new(Mutex::new(ChannelManager::new()));

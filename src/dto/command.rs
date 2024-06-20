@@ -153,6 +153,7 @@ impl<'de> Deserialize<'de> for CommandTypes {
                     "/register" => Ok(CommandTypes::Register),
                     "/login" => Ok(CommandTypes::Login),
                     "/join" => Ok(CommandTypes::Join),
+                    "/message" => Ok(CommandTypes::Message),
                     "/whisper" => Ok(CommandTypes::Whisper),
                     "/exit" => Ok(CommandTypes::Exit),
                     _ => Err(de::Error::unknown_variant(

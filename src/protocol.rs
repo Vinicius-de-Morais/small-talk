@@ -1,9 +1,10 @@
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::io::{self, Write};
-use std::net::TcpStream;
+use std::net::{TcpListener, TcpStream};
 use std::thread::{self};
 use serde::{Deserialize, Serialize};
+use serde_json::Deserializer;
 
 use crate::models::User;
 use crate::dto::header::Header;
@@ -18,17 +19,11 @@ impl Protocol {
 
     // METODOS SENT E BUIL UTILIZADOS MAJORITARIAMENTE PARA TESTE
 
-    pub fn send(addr: &str, user: User, payload: json::JsonValue) -> io::Result<()> {
+    pub fn send(user: User, payload: json::JsonValue) -> io::Result<String> {
         // Build the request
         let request = Protocol::build(user, payload);
 
-        // Establish TCP connection to the server
-        let mut stream = TcpStream::connect(addr)?;
-
-        // Send the request to the server
-        stream.write_all(&request.to_string().as_bytes())?;
-
-        Ok(())
+        Ok(request.to_string())
     }
 
     fn build(user: User, payload: json::JsonValue) -> HeaderSend {
@@ -62,7 +57,7 @@ impl Protocol {
 
     // lidar coom o request lendo os dados vindos do buffer para trasnformar num header utilizavel
     pub fn handle_request(buffer_string: &[u8]) -> HeaderSend{
-        assert!(!buffer_string.starts_with(b"SEND"));
+        //assert!(!buffer_string.starts_with(b"SEND"));
         
         let (mut header_json, command_json) = Protocol::get_header_and_command(buffer_string);
         let res_payload = command_json.handle_command(&mut header_json);
@@ -85,6 +80,10 @@ impl Protocol {
     pub fn get_header_and_command(buffer_string: &[u8]) -> (Header, Command){
 
         let (header, command) = Protocol::read_buffer(buffer_string);
+
+        println!("Header: {}", header);
+        println!("Command: {}", command);
+
         let header_json = Protocol::header_to_object(&header);
         let command_json = Protocol::command_to_object(&command);
 
@@ -111,7 +110,8 @@ impl Protocol {
     }
 
     pub fn command_to_object(command: &str) -> Command {
-        let command_json: Command = serde_json::from_str(command).unwrap();
+        // let command_json: Command = serde_json::from_str(command).unwrap();
+        let command_json: Command = Command::deserialize(&mut Deserializer::from_str(command)).unwrap();
         command_json
     }
 

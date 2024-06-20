@@ -107,9 +107,11 @@ impl Worker {
         
                     job();
                 }
-                Err(_) => {
+                Err(error) => {
+
+                    println!("{}", error.to_string());
                     println!("Worker disconnected; shutting down.");
-                    break;
+                    //break;
                 } 
             }
 
