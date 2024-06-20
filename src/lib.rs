@@ -34,7 +34,7 @@ pub fn handle_connection(mut stream: TcpStream, channel_manager: SharedChannelMa
     }
 
     // manda a resposta de volta para o cliente
-    stream.flush().unwrap();
+    //stream.flush().unwrap();
 }
 
 // estrutura responsável por inicializar uma thread de estruturas
@@ -111,7 +111,7 @@ impl Worker {
 
                     println!("{}", error.to_string());
                     println!("Worker disconnected; shutting down.");
-                    //break;
+                    break;
                 } 
             }
 

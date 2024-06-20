@@ -2,6 +2,7 @@
 use std::net::TcpListener;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::thread;
 
 use small_talk::channel_manager::ChannelManager;
 use small_talk::handle_connection;
@@ -17,12 +18,22 @@ fn main() {
     let channel_manager = Arc::new(Mutex::new(ChannelManager::new()));
 
     // fazendo um laço a partir da stream de dados vinda do listener
-    for stream in listener.incoming().take(2) {
+    // for stream in listener.incoming().take(2) {
+    //     let stream = stream.unwrap();
+    //     let channel_manager = Arc::clone(&channel_manager);
+
+    //     pool.execute(move || {
+    //         handle_connection(stream, channel_manager)
+    //     });
+    // }
+
+    for stream in listener.incoming() {
         let stream = stream.unwrap();
         let channel_manager = Arc::clone(&channel_manager);
 
-        pool.execute(move || {
-            handle_connection(stream, channel_manager)
+        thread::spawn(|| {
+            println!("Connection established");
+            handle_connection(stream, channel_manager);
         });
     }
 }
