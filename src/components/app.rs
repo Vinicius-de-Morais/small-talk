@@ -1,3 +1,4 @@
+use json::JsonValue::Null;
 use serde_json::Value;
 use std::thread;
 use std::{error::Error, io};
@@ -116,11 +117,13 @@ impl App {
         self.character_index = 0;
     }
 
-    fn submit_message(&mut self) {
+    fn submit_message(&mut self, client_tcp: Client) {
         self.messages.push(self.input.clone());
         self.input.clear();
         self.reset_cursor();
-        Protocol::send(&client_tcp.server, client_tcp.user, client_tcp.payload);
+        let (header) = Protocol::send(&client_tcp.server, client_tcp.user, client_tcp.payload);
+
+        self.messages = parse_json_to_messages(header);
     }
 
     // Implementação da conversão do JSON (header) para um vetor de mensagens
@@ -133,12 +136,12 @@ impl App {
                 }
             }
         }
+        println(messages);
+
         messages
     }
-
         
-    fn build_request(nickname:String, command:String, input:String) {
-
+    fn get_client_props(&self, nickname:String, command:String, input:String) {
         // Mockar o usuario e payload
         let mut user = User { 
             id: 123, 
@@ -151,18 +154,17 @@ impl App {
         payload["command"]["type"] = command.into();
         payload["command"]["input"] = input.into();
 
+        if (command == "/message") {
+            payload["command"]["input"] = self.messages;
+        }
+
         (user, payload)
-    };
+    }
 }
-
-fn get_server() {
-    let mut entry_server = String::new();
-}
-
-
 
 fn up_server() {
     let listener = TcpListener::bind("127.0.0.1:6969").unwrap();
+
     let pool = ThreadPool::new(4);
 
     // canal para gerenciar os channels
@@ -171,6 +173,7 @@ fn up_server() {
     // fazendo um laço a partir da stream de dados vinda do listener
     for stream in listener.incoming().take(2) {
         let stream = stream.unwrap();
+
         let channel_manager = Arc::clone(&channel_manager);
 
         pool.execute(move || {
@@ -179,58 +182,79 @@ fn up_server() {
     }
 }
 
-fn get_informations() {
-
-    let mut entry_server = String::new();
-    let mut user_command = String::new();
-
-    println!("---------------------------------------------------------------------------------------");
-    println!("Insira o IP: ");
-
-    io::stdin()
-        .read_line(&mut entry_server)
-        .expect("Falha ao ler a linha");
-
-
-    println!("---------------------------------------------------------------------------------------");
-    println!("Entre: ");
-
-    io::stdin()
-        .read_line(&mut user_command)
-        .expect("Falha ao ler a linha");
-
-
-    // let (header, payload) = Protocol::read_buffer(combined_string.as_bytes());  
+fn get_informations (mut client_tcp:Client) -> Client {
     
-    let mut payload = json::JsonValue::new_object();
-        payload["command"]["type"] = "Message".into();
-        payload["command"]["input"] = "teste123".into();
+    if (client_tcp.server == Null || client_tcp.user == Null ) {
 
-    
-    let client_tcp = Client { server:entry_server.to_owned(), user, payload};
-        // Attempt to send the request
-    send_message()
+        let mock_user = User { 
+            id: 123, 
+            nickname: "".to_string(), 
+            last_nickname: "".to_string(), 
+            active: true 
+        };
 
+        let mut mock_payload = json::JsonValue::new_object();
+            payload["command"]["type"] = command.into();
+            payload["command"]["input"] = input.into();
+
+        let mut entry_server = String::new();
+        let mut user_command = String::new();
+        let mut pre_client:Client = Null;
+
+        if (client_tcp.server == Null) {
+
+            println!("---------------------------------------------------------------------------------------");
+            println!("Insira o IP: ");
+        
+            io::stdin()
+                .read_line(&mut entry_server)
+                .expect("Falha ao ler a linha");
+
+                pre_client = Client {server: entry_server,user: mock_user, payload: mock_payload};
+
+                client_tcp = pre_client;
+        }
+
+        if (client_tcp.user == Null) {
+
+            println!("---------------------------------------------------------------------------------------");
+            println!("Entre: ");
+        
+            io::stdin()
+                .read_line(&mut user_command)
+                .expect("Falha ao ler a linha");
+
+
+            let mut parts = user_command.split_whitespace();
+            let command = parts.next().unwrap();
+            let name = parts.next().unwrap();
+            let command = &command[1..];
+
+            let (user, payload) = get_client_props(name, command, "");
+
+            pre_client = Client { server:client_tcp.server, user, payload};
+
+            client_tcp = pre_client;
+        }
+
+    }    
+    // let (header, payload) = Protocol::read_buffer(combined_string.as_bytes());
+    client_tcp
 }
-
-
-fn send_message() {
-    Protocol::send(&client_tcp.server, client_tcp.user, client_tcp.payload);    
-}
-
-
 
 // local para testar
 pub fn main_chat() -> Result<(), Box<dyn Error>> {
-    
     // // Thread para executar o interface
     // let handle_server = thread::spawn(|| {   
     //     up_server();
     // });
 
-    // handle_server.join().unwrap();
 
-    get_informations();
+    let enpty_client = Client {server:Null,user:Null,payload:Null}; 
+
+    let cliente_tcp:Client = get_informations(enpty_client);
+
+    // handle_server.join().unwrap();
 
     // setup terminal
     // enable_raw_mode()?;
@@ -260,7 +284,7 @@ pub fn main_chat() -> Result<(), Box<dyn Error>> {
 }
 
 // Loop da aplicação
-fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<()> {
+fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App, mut client_tcp: Client) -> io::Result<()> {
     loop {
         terminal.draw(|f| ui(f, &app))?;
 
@@ -276,7 +300,12 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                     _ => {}
                 },
                 InputMode::Editing if key.kind == KeyEventKind::Press => match key.code {
-                    KeyCode::Enter => app.submit_message(),
+                    KeyCode::Enter => {
+                        let (user, payload) = app.get_client_props(client_tcp.user.nickname.to_owned(), "/message".to_owned(),"".to_owned());
+                        client_tcp.user = user;
+                        client_tcp.payload = payload;
+                        app.submit_message(client_tcp);
+                    },
                     KeyCode::Char(to_insert) => {
                         app.enter_char(to_insert);
                     }
